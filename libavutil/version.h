@@ -107,6 +107,9 @@
 #ifndef FF_API_AVFRAME_LAVC
 #define FF_API_AVFRAME_LAVC             (LIBAVUTIL_VERSION_MAJOR < 55)
 #endif
+#ifndef FF_API_VAAPI
+#define FF_API_VAAPI                    (LIBAVUTIL_VERSION_MAJOR < 55)
+#endif
 #ifndef FF_API_VDPAU
 #define FF_API_VDPAU                    (LIBAVUTIL_VERSION_MAJOR < 55)
 #endif
