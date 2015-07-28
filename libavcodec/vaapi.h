@@ -40,14 +40,16 @@
  * @{
  */
 
+#define AV_VAAPI_CONTEXT_VERSION 1
+
 /**
  * This structure is used to share data between the FFmpeg library and
  * the client video application.
- * This shall be zero-allocated and available as
- * AVCodecContext.hwaccel_context. All user members can be set once
- * during initialization or through each AVCodecContext.get_buffer()
- * function call. In any case, they must be valid prior to calling
- * decoding functions.
+ *
+ * This shall be initialized with av_vaapi_context_init(), or
+ * indirectly through av_vaapi_context_alloc(), and made available as
+ * AVCodecContext.hwaccel_context. All user members must be properly
+ * initialized before AVCodecContext.get_format() completes.
  */
 struct vaapi_context {
     /**
@@ -73,6 +75,29 @@ struct vaapi_context {
      * - decoding: Set by user
      */
     uint32_t context_id;
+
+    /**
+     * This field must be set to AV_VAAPI_CONTEXT_VERSION
+     *
+     * @since Version 1.
+     *
+     * - encoding: unused
+     * - decoding: Set by user, through av_vaapi_context_init()
+     */
+    unsigned int version;
+
+    /**
+     * A bit field configuring the internal context used by libavcodec
+     *
+     * This is a combination of flags from common AV_HWACCEL_FLAG_xxx and
+     * from VA-API specific AV_VAAPI_FLAG_xxx.
+     *
+     * @since Version 1.
+     *
+     * - encoding: unused
+     * - decoding: Set by user, through av_vaapi_context_init()
+     */
+    unsigned int flags;
 
 #if FF_API_VAAPI_CONTEXT
     /**
@@ -183,6 +208,30 @@ struct vaapi_context {
     uint32_t slice_data_size;
 #endif
 };
+
+/**
+ * Allocates a vaapi_context structure.
+ *
+ * This function allocates and initializes a vaapi_context with safe
+ * defaults, e.g. with proper invalid ids for VA config and context.
+ *
+ * The resulting structure can be deallocated with av_freep().
+ *
+ * @param[in]  flags    zero, or a combination of AV_HWACCEL_FLAG_xxx or
+ *     AV_VAAPI_FLAG_xxx flags OR'd altogether.
+ * @return Newly-allocated struct vaapi_context, or NULL on failure
+ */
+struct vaapi_context *av_vaapi_context_alloc(unsigned int flags);
+
+/**
+ * Initializes a vaapi_context structure with safe defaults.
+ *
+ * @param[in]  version  this must be set to AV_VAAPI_CONTEXT_VERSION
+ * @param[in]  flags    zero, or a combination of AV_HWACCEL_FLAG_xxx or
+ *     AV_VAAPI_FLAG_xxx flags OR'd altogether.
+ */
+void av_vaapi_context_init(struct vaapi_context *vactx, unsigned int version,
+                           unsigned int flags);
 
 /* @} */
 

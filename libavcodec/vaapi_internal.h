@@ -36,6 +36,7 @@
  */
 
 typedef struct {
+    unsigned int flags;                 ///< Configuration flags
     VADisplay display;                  ///< Windowing system dependent handle
     VAConfigID config_id;               ///< Configuration ID
     VAContextID context_id;             ///< Context ID (video decode pipeline)

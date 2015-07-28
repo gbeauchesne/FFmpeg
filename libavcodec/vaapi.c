@@ -41,10 +41,40 @@ static void destroy_buffers(VADisplay display, VABufferID *buffers, unsigned int
     }
 }
 
+/* Allocates a vaapi_context structure */
+struct vaapi_context *av_vaapi_context_alloc(unsigned int flags)
+{
+    struct vaapi_context *vactx;
+
+    vactx = av_malloc(sizeof(*vactx));
+    if (!vactx)
+        return NULL;
+
+    av_vaapi_context_init(vactx, AV_VAAPI_CONTEXT_VERSION, flags);
+    return vactx;
+}
+
+/* Initializes a vaapi_context structure with safe defaults */
+void av_vaapi_context_init(struct vaapi_context *vactx, unsigned int version,
+                           unsigned int flags)
+{
+    vactx->display      = NULL;
+    vactx->config_id    = VA_INVALID_ID;
+    vactx->context_id   = VA_INVALID_ID;
+
+    if (version > 0) {
+        vactx->version  = version;
+        vactx->flags    = flags;
+    }
+}
+
 int ff_vaapi_context_init(AVCodecContext *avctx)
 {
     FFVAContext * const vactx = ff_vaapi_get_context(avctx);
     const struct vaapi_context * const user_vactx = avctx->hwaccel_context;
+
+    if (user_vactx->version > 0)
+        vactx->flags            = user_vactx->flags;
 
     vactx->display              = user_vactx->display;
     vactx->config_id            = user_vactx->config_id;
