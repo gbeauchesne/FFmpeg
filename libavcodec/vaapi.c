@@ -41,24 +41,95 @@ static void destroy_buffers(VADisplay display, VABufferID *buffers, unsigned int
     }
 }
 
+/** @name VA-API pipeline parameters (internal) */
+/**@{*/
+/** Pipeline configuration flags (AV_HWACCEL_FLAG_*|AV_VAAPI_PIPELINE_FLAG_*) */
+#define AV_VAAPI_PIPELINE_PARAM_FLAGS           "flags"
+/** User-supplied VA display handle */
+#define AV_VAAPI_PIPELINE_PARAM_DISPLAY         "display"
+/**@}*/
+
+#define OFFSET(x) offsetof(FFVAContext, x)
+static const AVOption FFVAContextOptions[] = {
+    { AV_VAAPI_PIPELINE_PARAM_FLAGS, "flags", OFFSET(flags),
+      AV_OPT_TYPE_INT, { .i64 = 0 }, 0, UINT32_MAX },
+    { AV_VAAPI_PIPELINE_PARAM_DISPLAY, "VA display", OFFSET(user_display),
+      AV_OPT_TYPE_INT64, { .i64 = 0 }, 0, UINTPTR_MAX },
+    { AV_VAAPI_PIPELINE_PARAM_CONTEXT, "VA context id", OFFSET(user_context_id),
+      AV_OPT_TYPE_INT, { .i64 = VA_INVALID_ID }, 0, UINT32_MAX },
+    { NULL, }
+};
+#undef OFFSET
+
+static const AVClass FFVAContextClass = {
+    .class_name = "FFVAContext",
+    .item_name  = av_default_item_name,
+    .option     = FFVAContextOptions,
+    .version    = LIBAVUTIL_VERSION_INT,
+};
+
+int av_vaapi_set_pipeline_params(AVCodecContext *avctx, VADisplay display,
+                                 uint32_t flags, AVDictionary **params)
+{
+    int ret;
+
+    if (!display) {
+        av_log(avctx, AV_LOG_ERROR, "No valid VA display supplied.\n");
+        return AVERROR(EINVAL);
+    }
+
+    if (params && *params)
+        av_dict_copy(&avctx->internal->hwaccel_config, *params, 0);
+
+    ret = av_dict_set_int(&avctx->internal->hwaccel_config,
+                          AV_VAAPI_PIPELINE_PARAM_FLAGS, flags, 0);
+    if (ret != 0)
+        return ret;
+
+    return av_dict_set_int(&avctx->internal->hwaccel_config,
+                           AV_VAAPI_PIPELINE_PARAM_DISPLAY,
+                           (int64_t)(intptr_t)display, 0);
+}
+
 int ff_vaapi_context_init(AVCodecContext *avctx)
 {
     FFVAContext * const vactx = ff_vaapi_get_context(avctx);
-    const struct vaapi_context * const user_vactx = avctx->hwaccel_context;
+    int ret;
 
-    if (!user_vactx) {
-        av_log(avctx, AV_LOG_ERROR, "Hardware acceleration context (hwaccel_context) does not exist.\n");
-        return AVERROR(ENOSYS);
+    vactx->klass = &FFVAContextClass;
+    av_opt_set_defaults(vactx);
+
+#if FF_API_VAAPI_CONTEXT
+FF_DISABLE_DEPRECATION_WARNINGS
+    if (avctx->hwaccel_context) {
+        const struct vaapi_context * const user_vactx = avctx->hwaccel_context;
+        vactx->user_display     = (uintptr_t)user_vactx->display;
+        vactx->user_context_id  = user_vactx->context_id;
     }
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
 
-    vactx->display              = user_vactx->display;
-    vactx->config_id            = user_vactx->config_id;
-    vactx->context_id           = user_vactx->context_id;
-
+    vactx->context_id           = VA_INVALID_ID;
     vactx->pic_param_buf_id     = VA_INVALID_ID;
     vactx->iq_matrix_buf_id     = VA_INVALID_ID;
     vactx->bitplane_buf_id      = VA_INVALID_ID;
 
+    ret = av_opt_set_dict(vactx, &avctx->internal->hwaccel_config);
+    if (ret != 0)
+        return ret;
+
+    vactx->display              = (void *)(uintptr_t)vactx->user_display;
+    vactx->context_id           = vactx->user_context_id;
+
+    if (!vactx->display) {
+        av_log(avctx, AV_LOG_ERROR, "No valid VA display found.\n");
+        return AVERROR(EINVAL);
+    }
+
+    if (vactx->context_id != VA_INVALID_ID && !avctx->get_buffer2) {
+        av_log(avctx, AV_LOG_ERROR, "No AVCodecContext.get_buffer2() hooked defined.\n");
+        return AVERROR(EINVAL);
+    }
     return 0;
 }
 
