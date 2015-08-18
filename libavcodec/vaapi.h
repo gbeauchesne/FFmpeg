@@ -32,7 +32,9 @@
 
 #include <stdint.h>
 #include <libavutil/attributes.h>
+#include <va/va.h>
 #include "version.h"
+#include "avcodec.h"
 
 /**
  * @defgroup lavc_codec_hwaccel_vaapi VA API Decoding
@@ -48,7 +50,11 @@
  * during initialization or through each AVCodecContext.get_buffer()
  * function call. In any case, they must be valid prior to calling
  * decoding functions.
+ *
+ * This structure is deprecated. Please refer to pipeline parameters
+ * and associated accessors, e.g. av_vaapi_set_pipeline_params().
  */
+#if FF_API_VAAPI_CONTEXT
 struct vaapi_context {
     /**
      * Window system dependent data
@@ -56,6 +62,7 @@ struct vaapi_context {
      * - encoding: unused
      * - decoding: Set by user
      */
+    attribute_deprecated
     void *display;
 
     /**
@@ -64,6 +71,7 @@ struct vaapi_context {
      * - encoding: unused
      * - decoding: Set by user
      */
+    attribute_deprecated
     uint32_t config_id;
 
     /**
@@ -72,9 +80,9 @@ struct vaapi_context {
      * - encoding: unused
      * - decoding: Set by user
      */
+    attribute_deprecated
     uint32_t context_id;
 
-#if FF_API_VAAPI_CONTEXT
     /**
      * VAPictureParameterBuffer ID
      *
@@ -181,8 +189,45 @@ struct vaapi_context {
      */
     attribute_deprecated
     uint32_t slice_data_size;
-#endif
 };
+#endif
+
+/** @name VA-API pipeline parameters */
+/**@{*/
+/**
+ * VA context id (uint32_t) [default: VA_INVALID_ID]
+ *
+ * This defines the VA context id to use for decoding. If set, then
+ * the user allocates and owns the handle, and shall supply VA surfaces
+ * through an appropriate hook to AVCodecContext.get_buffer2().
+ */
+#define AV_VAAPI_PIPELINE_PARAM_CONTEXT         "context"
+/**@}*/
+
+/**
+ * Defines VA processing pipeline parameters
+ *
+ * This function binds the supplied VA @a display to a codec context
+ * @a avctx.
+ *
+ * The user retains full ownership of the display, and thus shall
+ * ensure the VA-API subsystem was initialized with vaInitialize(),
+ * make due diligence to keep it live until it is no longer needed,
+ * and dispose the associated resources with vaTerminate() whenever
+ * appropriate.
+ *
+ * @note This function has no effect if it is called outside of an
+ * AVCodecContext.get_format() hook.
+ *
+ * @param[in] avctx     the codec context being used for decoding the stream
+ * @param[in] display   the VA display handle to use for decoding
+ * @param[in] flags     zero or more OR'd AV_HWACCEL_FLAG_* or
+ *     AV_VAAPI_PIPELINE_FLAG_* flags
+ * @param[in] params    optional parameters to configure the pipeline
+ * @return 0 on success, an AVERROR code on failure.
+ */
+int av_vaapi_set_pipeline_params(AVCodecContext *avctx, VADisplay display,
+                                 uint32_t flags, AVDictionary **params);
 
 /* @} */
 
