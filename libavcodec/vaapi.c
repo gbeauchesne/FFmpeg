@@ -41,19 +41,75 @@ static void destroy_buffers(VADisplay display, VABufferID *buffers, unsigned int
     }
 }
 
+#define OFFSET(x) offsetof(FFVAContext, x)
+static const AVOption FFVAContextOptions[] = {
+    { AV_VAAPI_CONFIG_OPTION_DISPLAY, "VA display handle", OFFSET(display),
+      AV_OPT_TYPE_INT64, { .i64 = 0 }, 0, UINTPTR_MAX },
+    { AV_VAAPI_CONFIG_OPTION_CONFIG, "VA config id", OFFSET(config_id),
+      AV_OPT_TYPE_INT, { .i64 = VA_INVALID_ID }, 0, UINT32_MAX },
+    { AV_VAAPI_CONFIG_OPTION_CONTEXT, "VA context id", OFFSET(context_id),
+      AV_OPT_TYPE_INT, { .i64 = VA_INVALID_ID }, 0, UINT32_MAX },
+    { NULL, }
+};
+#undef OFFSET
+
+static const AVClass FFVAContextClass = {
+    .class_name = "FFVAContext",
+    .item_name  = av_default_item_name,
+    .option     = FFVAContextOptions,
+    .version    = LIBAVUTIL_VERSION_INT,
+};
+
+static const AVOption *get_option(const char *key, const char *unit)
+{
+    const AVClass *klass = &FFVAContextClass;
+
+    return av_opt_find2(&klass, key, unit, 0, AV_OPT_SEARCH_FAKE_OBJ, NULL);
+}
+
+int av_vaapi_set_display(AVCodecContext *avctx, VADisplay display)
+{
+    return av_vaapi_set_config_int(avctx, AV_VAAPI_CONFIG_OPTION_DISPLAY,
+                                   (int64_t)(intptr_t)display);
+}
+
+int av_vaapi_set_config(AVCodecContext *avctx, const char *key,
+                        const char *value)
+{
+    if (!get_option(key, NULL))
+        return AVERROR(EINVAL);
+    return av_dict_set(&avctx->internal->hwaccel_config, key, value, 0);
+}
+
+int av_vaapi_set_config_int(AVCodecContext *avctx, const char *key,
+                            int64_t value)
+{
+    if (!get_option(key, NULL))
+        return AVERROR(EINVAL);
+    return av_dict_set_int(&avctx->internal->hwaccel_config, key, value, 0);
+}
+
 int ff_vaapi_context_init(AVCodecContext *avctx)
 {
     FFVAContext * const vactx = ff_vaapi_get_context(avctx);
-    const struct vaapi_context * const user_vactx = avctx->hwaccel_context;
 
-    vactx->display              = user_vactx->display;
-    vactx->config_id            = user_vactx->config_id;
-    vactx->context_id           = user_vactx->context_id;
+    vactx->klass = &FFVAContextClass;
+    av_opt_set_defaults(vactx);
+
+#if FF_API_VAAPI_CONTEXT
+    if (avctx->hwaccel_context) {
+        const struct vaapi_context * const user_vactx = avctx->hwaccel_context;
+        vactx->display          = user_vactx->display;
+        vactx->config_id        = user_vactx->config_id;
+        vactx->context_id       = user_vactx->context_id;
+    }
+#endif
 
     vactx->pic_param_buf_id     = VA_INVALID_ID;
     vactx->iq_matrix_buf_id     = VA_INVALID_ID;
     vactx->bitplane_buf_id      = VA_INVALID_ID;
-    return 0;
+
+    return av_opt_set_dict(vactx, &avctx->internal->hwaccel_config);
 }
 
 int ff_vaapi_context_fini(AVCodecContext *avctx)

@@ -32,7 +32,9 @@
 
 #include <stdint.h>
 #include <libavutil/attributes.h>
+#include <va/va.h>
 #include "version.h"
+#include "avcodec.h"
 
 /**
  * @defgroup lavc_codec_hwaccel_vaapi VA API Decoding
@@ -48,7 +50,12 @@
  * during initialization or through each AVCodecContext.get_buffer()
  * function call. In any case, they must be valid prior to calling
  * decoding functions.
+ *
+ * This structure is deprecated. Please refer to config options and
+ * associated accessors: av_vaapi_set_display(), av_vaapi_set_config_int(),
+ * av_vaapi_set_config().
  */
+#if FF_API_VAAPI_CONTEXT
 struct vaapi_context {
     /**
      * Window system dependent data
@@ -56,6 +63,7 @@ struct vaapi_context {
      * - encoding: unused
      * - decoding: Set by user
      */
+    attribute_deprecated
     void *display;
 
     /**
@@ -64,6 +72,7 @@ struct vaapi_context {
      * - encoding: unused
      * - decoding: Set by user
      */
+    attribute_deprecated
     uint32_t config_id;
 
     /**
@@ -72,9 +81,9 @@ struct vaapi_context {
      * - encoding: unused
      * - decoding: Set by user
      */
+    attribute_deprecated
     uint32_t context_id;
 
-#if FF_API_VAAPI_CONTEXT
     /**
      * VAPictureParameterBuffer ID
      *
@@ -181,8 +190,68 @@ struct vaapi_context {
      */
     attribute_deprecated
     uint32_t slice_data_size;
-#endif
 };
+#endif
+
+/** @name VA-API pipeline config options */
+/**@{*/
+/** @brief VA display (pointer) */
+#define AV_VAAPI_CONFIG_OPTION_DISPLAY          "display"
+/** @brief VA configuration id (uint32_t) */
+#define AV_VAAPI_CONFIG_OPTION_CONFIG           "config"
+/** @brief VA context id (uint32_t) */
+#define AV_VAAPI_CONFIG_OPTION_CONTEXT          "context"
+/**@}*/
+
+/**
+ * Binds a user supplied VA display to a codec context
+ *
+ * This function binds the supplied VA @a display to a codec context
+ * @a avctx. The user retains full ownership of the display, and thus
+ * shall ensure the VA-API subsystem was initialized with vaInitialize(),
+ * make due diligence to keep it live until it is no longer needed,
+ * and dispose the associated resources with vaTerminate() whenever
+ * appropriate.
+ *
+ * @note This function has no effect if it is called outside of an
+ * AVCodecContext.get_format() hook.
+ *
+ * @param[in] avctx the codec context being used for decoding the stream
+ * @param[in] display the VA display handle to use for decoding
+ * @return 0 on success, an AVERROR code on failure.
+ */
+int av_vaapi_set_display(AVCodecContext *avctx, VADisplay display);
+
+/**
+ * Configures the VA-API decoder with a key/value pair, overwriting a
+ * previous entry.
+ *
+ * @note This function has no effect if it is called outside of an
+ * AVCodecContext.get_format() hook.
+ *
+ * @param[in] avctx the codec context being used for decoding the stream
+ * @param[in] key config option key (string)
+ * @param[in] value config option value (string). Passing a NULL value
+ *   will cause an existing entry to be deleted.
+ * @return 0 on success, an AVERROR code on failure.
+ */
+int av_vaapi_set_config(AVCodecContext *avctx, const char *key,
+                        const char *value);
+
+/**
+ * Configures the VA-API decoder with a key/value pair, overwriting a
+ *   previous entry.
+ *
+ * @note This function has no effect if it is called outside of an
+ * AVCodecContext.get_format() hook.
+ *
+ * @param[in] avctx the codec context being used for decoding the stream
+ * @param[in] key config option key (string)
+ * @param[in] value config option value (int)
+ * @return 0 on success, an AVERROR code on failure.
+ */
+int av_vaapi_set_config_int(AVCodecContext *avctx, const char *key,
+                            int64_t value);
 
 /* @} */
 
