@@ -1063,6 +1063,7 @@ int ff_get_format(AVCodecContext *avctx, const enum AVPixelFormat *fmt)
         if (avctx->hwaccel && avctx->hwaccel->uninit)
             avctx->hwaccel->uninit(avctx);
         av_freep(&avctx->internal->hwaccel_priv_data);
+        av_dict_free(&avctx->internal->hwaccel_config);
         avctx->hwaccel = NULL;
 
         ret = avctx->get_format(avctx, choices);
@@ -2520,6 +2521,7 @@ av_cold int avcodec_close(AVCodecContext *avctx)
         if (avctx->hwaccel && avctx->hwaccel->uninit)
             avctx->hwaccel->uninit(avctx);
         av_freep(&avctx->internal->hwaccel_priv_data);
+        av_dict_free(&avctx->internal->hwaccel_config);
 
         av_freep(&avctx->internal);
     }
