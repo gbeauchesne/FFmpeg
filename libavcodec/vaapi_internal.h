@@ -36,6 +36,10 @@
  */
 
 typedef struct {
+    const void *klass;
+    uint32_t flags;                     ///< Pipeline flags
+    uint64_t user_display;              ///< User-supplied VA display
+    uint32_t user_context_id;           ///< User-supplied VA context ID
     VADisplay display;                  ///< Windowing system dependent handle
     VAConfigID config_id;               ///< Configuration ID
     VAContextID context_id;             ///< Context ID (video decode pipeline)
