@@ -157,6 +157,20 @@ typedef struct AVCodecInternal {
      * hwaccel-specific private data
      */
     void *hwaccel_priv_data;
+
+    /**
+     * Hardware acceleration config options.
+     *
+     * Those options are live from AVHWAccel.init() to AVHWAccel.uninit().
+     * As such, they are specific to an active hwaccel and have a meaning
+     * to that specific hwaccel only during initialization. Initialization
+     * occurs during AVCodecContext.get_format() through hwaccel-specific
+     * helper functions.
+     *
+     * Options are written by the user and read by the hwaccel. Exposing
+     * hwaccel options to the user is not permitted.
+     */
+    AVDictionary *hwaccel_config;
 } AVCodecInternal;
 
 struct AVCodecDefault {
