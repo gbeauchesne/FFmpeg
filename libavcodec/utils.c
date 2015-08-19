@@ -903,7 +903,9 @@ static int get_buffer_internal(AVCodecContext *avctx, AVFrame *frame, int flags)
     if (hwaccel) {
         if (hwaccel->alloc_frame) {
             ret = hwaccel->alloc_frame(avctx, frame);
-            goto end;
+            if (ret != AVERROR(ENOSYS))
+                goto end;
+            /* Try out through get_buffer2() interfaces */
         }
     } else
         avctx->sw_pix_fmt = avctx->pix_fmt;
